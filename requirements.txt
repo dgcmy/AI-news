@@ -1,0 +1,10 @@
+anthropic
+fastapi
+uvicorn[standard]
+playwright
+beautifulsoup4
+requests
+feedparser
+apscheduler
+python-dotenv
+lxml

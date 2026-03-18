@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI ニュース ダイジェスト</title>
+  <style>
+    :root {
+      --bg: #0b0f1a;
+      --surface: #131929;
+      --surface2: #1a2236;
+      --border: #243047;
+      --text: #e2e8f0;
+      --muted: #7a8eac;
+      --accent: #4f8ef7;
+      --accent2: #6366f1;
+      --gold: #f59e0b;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', 'Meiryo', 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ─── Header ─── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.9rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+    .logo-title { font-size: 1.2rem; font-weight: 700; }
+    .logo-sub { font-size: 0.7rem; color: var(--muted); margin-top: 1px; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+    }
+    .date-box { text-align: right; }
+    .date-main { font-size: 0.85rem; font-weight: 600; }
+    .date-sub { font-size: 0.7rem; color: var(--muted); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 1rem;
+      border-radius: 7px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.18s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    .btn-primary:hover { background: #3b7de8; }
+    .btn-primary:disabled { opacity: 0.5; cursor: default; }
+
+    .spinner {
+      width: 13px;
+      height: 13px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Main ─── */
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.75rem 1.5rem 3rem;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 0.75rem; }
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .count-badge {
+      background: rgba(79,142,247,0.15);
+      color: var(--accent);
+      border: 1px solid rgba(79,142,247,0.3);
+      border-radius: 20px;
+      padding: 0.15rem 0.65rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .status-msg {
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    /* Date selector */
+    .date-nav {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+    .date-btn {
+      padding: 0.25rem 0.65rem;
+      border-radius: 5px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      transition: all 0.15s;
+    }
+    .date-btn:hover, .date-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    /* ─── Loading ─── */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 5rem 1rem;
+      gap: 1.25rem;
+    }
+    .loading-ring {
+      width: 52px;
+      height: 52px;
+      border: 4px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .loading p { color: var(--muted); font-size: 0.9rem; }
+
+    /* ─── News Cards ─── */
+    .news-grid { display: grid; gap: 0.85rem; }
+
+    .news-card {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.1rem 1.25rem;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+      align-items: start;
+    }
+    .news-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(79,142,247,0.12);
+    }
+
+    .rank {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .rank-gold {
+      background: linear-gradient(135deg, #f59e0b, #ef4444);
+      color: white;
+      box-shadow: 0 2px 8px rgba(245,158,11,0.4);
+    }
+    .rank-silver { background: linear-gradient(135deg, #94a3b8, #64748b); color: white; }
+    .rank-bronze { background: linear-gradient(135deg, #cd7c2f, #a05c1e); color: white; }
+    .rank-normal { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+    .card-body { min-width: 0; }
+
+    .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin-bottom: 0.45rem;
+      flex-wrap: wrap;
+    }
+
+    .source-tag {
+      padding: 0.15rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: white;
+      white-space: nowrap;
+    }
+    .src-nikkei       { background: #dc2626; }
+    .src-openai       { background: #10b981; }
+    .src-anthropic    { background: #7c3aed; }
+    .src-google       { background: #2563eb; }
+    .src-meta         { background: #0284c7; }
+    .src-techcrunch   { background: #d97706; }
+    .src-venturebeat  { background: #0891b2; }
+    .src-verge        { background: #e11d48; }
+    .src-mit          { background: #4f46e5; }
+    .src-wired        { background: #374151; }
+    .src-ars          { background: #be123c; }
+    .src-default      { background: #475569; }
+
+    .card-title {
+      font-size: 0.97rem;
+      font-weight: 600;
+      line-height: 1.45;
+      color: var(--text);
+      margin-bottom: 0.45rem;
+    }
+
+    .card-summary {
+      font-size: 0.83rem;
+      color: var(--muted);
+      line-height: 1.65;
+      margin-bottom: 0.5rem;
+    }
+
+    .card-point {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.72rem;
+      color: var(--gold);
+      background: rgba(245,158,11,0.1);
+      border: 1px solid rgba(245,158,11,0.2);
+      padding: 0.18rem 0.55rem;
+      border-radius: 4px;
+    }
+
+    /* ─── Empty state ─── */
+    .empty {
+      text-align: center;
+      padding: 4rem 1rem;
+    }
+    .empty-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+    .empty h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+    .empty p { font-size: 0.85rem; color: var(--muted); }
+
+    /* ─── Footer ─── */
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    /* ─── Processing notice ─── */
+    .notice {
+      background: rgba(79,142,247,0.08);
+      border: 1px solid rgba(79,142,247,0.2);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.82rem;
+      color: var(--accent);
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .notice.show { display: flex; }
+    .notice-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(79,142,247,0.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🤖</div>
+    <div>
+      <div class="logo-title">AI ニュース ダイジェスト</div>
+      <div class="logo-sub">Powered by Claude AI</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="date-box">
+      <div class="date-main" id="headerDate"></div>
+      <div class="date-sub" id="lastUpdated"></div>
+    </div>
+    <button class="btn btn-primary" id="refreshBtn" onclick="doRefresh()">
+      <div class="spinner" id="btnSpinner"></div>
+      <span id="btnLabel">🔄 更新</span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="section-title" id="sectionTitle">本日のトップAIニュース</span>
+      <span class="count-badge" id="countBadge" style="display:none"></span>
+    </div>
+    <span class="status-msg" id="statusMsg"></span>
+  </div>
+
+  <div class="notice" id="processingNotice">
+    <div class="notice-spinner"></div>
+    <span>ニュースを取得・分析中です。1〜3分ほどお待ちください...</span>
+  </div>
+
+  <div id="dateNav" class="date-nav" style="margin-bottom:1rem; display:none"></div>
+
+  <div id="content">
+    <div class="loading">
+      <div class="loading-ring"></div>
+      <p>ニュースを読み込み中...</p>
+    </div>
+  </div>
+</main>
+
+<footer>
+  ソース: <strong>日経新聞</strong>・OpenAI・Anthropic・Google DeepMind・Meta AI・TechCrunch・VentureBeat 他 |
+  分析: <a href="https://www.anthropic.com" target="_blank">Claude AI (Opus 4.6)</a>
+</footer>
+
+<script>
+  let currentDate = null;
+  let pollTimer = null;
+  let refreshStartTime = null;
+
+  const sourceClass = {
+    '日経新聞': 'src-nikkei',
+    'OpenAI': 'src-openai',
+    'Anthropic': 'src-anthropic',
+    'Google DeepMind': 'src-google',
+    'Meta AI': 'src-meta',
+    'TechCrunch': 'src-techcrunch',
+    'VentureBeat': 'src-venturebeat',
+    'The Verge': 'src-verge',
+    'MIT Technology Review': 'src-mit',
+    'Wired': 'src-wired',
+    'Ars Technica': 'src-ars',
+  };
+
+  function getSourceClass(src) {
+    return sourceClass[src] || 'src-default';
+  }
+
+  function rankClass(n) {
+    if (n === 1) return 'rank-gold';
+    if (n === 2) return 'rank-silver';
+    if (n === 3) return 'rank-bronze';
+    return 'rank-normal';
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return d.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+  }
+
+  function escape(s) {
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
+
+  function renderCards(articles) {
+    if (!articles || !articles.length) {
+      return `<div class="empty">
+        <div class="empty-icon">📭</div>
+        <h2>ニュースがまだありません</h2>
+        <p>「🔄 更新」ボタンを押してニュースを取得してください</p>
+      </div>`;
+    }
+    return `<div class="news-grid">${articles.map(a => `
+      <a class="news-card" href="${escape(a.url)}" target="_blank" rel="noopener noreferrer">
+        <div class="rank ${rankClass(a.rank)}">${a.rank || '?'}</div>
+        <div class="card-body">
+          <div class="card-meta">
+            <span class="source-tag ${getSourceClass(a.source)}">${escape(a.source)}</span>
+          </div>
+          <div class="card-title">${escape(a.title)}</div>
+          ${a.summary ? `<div class="card-summary">${escape(a.summary)}</div>` : ''}
+          ${a.point ? `<span class="card-point">⭐ ${escape(a.point)}</span>` : ''}
+        </div>
+      </a>`).join('')}
+    </div>`;
+  }
+
+  function renderNews(data) {
+    const { articles, generated_at, date } = data;
+
+    // ヘッダー更新
+    document.getElementById('headerDate').textContent = formatDate(date || new Date().toISOString().slice(0,10));
+    if (generated_at) {
+      const t = new Date(generated_at);
+      document.getElementById('lastUpdated').textContent = `更新: ${t.toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'})}`;
+    }
+
+    // カウント
+    if (articles && articles.length) {
+      const badge = document.getElementById('countBadge');
+      badge.textContent = `${articles.length}件`;
+      badge.style.display = '';
+      document.getElementById('statusMsg').textContent = '';
+    } else {
+      document.getElementById('statusMsg').textContent = '「更新」ボタンでニュースを取得できます';
+    }
+
+    document.getElementById('content').innerHTML = renderCards(articles);
+  }
+
+  async function loadNews(date) {
+    try {
+      const url = date ? `/api/news?date=${date}` : '/api/news';
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('fetch failed');
+      const data = await res.json();
+      renderNews(data);
+      return data;
+    } catch (e) {
+      document.getElementById('content').innerHTML = `<div class="empty">
+        <div class="empty-icon">⚠️</div>
+        <h2>読み込みに失敗しました</h2>
+        <p>ページを再読み込みするか、「更新」ボタンを押してください</p>
+      </div>`;
+    }
+  }
+
+  async function loadDates() {
+    try {
+      const res = await fetch('/api/dates');
+      const data = await res.json();
+      const dates = data.dates || [];
+      const nav = document.getElementById('dateNav');
+      if (dates.length > 1) {
+        nav.style.display = 'flex';
+        nav.innerHTML = dates.slice(0, 7).map(d => {
+          const label = d === new Date().toISOString().slice(0,10) ? '今日' : d;
+          return `<button class="date-btn ${d === currentDate ? 'active' : ''}" onclick="switchDate('${d}')">${label}</button>`;
+        }).join('');
+      }
+    } catch(e) {}
+  }
+
+  async function switchDate(date) {
+    currentDate = date;
+    await loadNews(date);
+    await loadDates();
+  }
+
+  function setRefreshState(loading) {
+    const btn = document.getElementById('refreshBtn');
+    const spinner = document.getElementById('btnSpinner');
+    const label = document.getElementById('btnLabel');
+    btn.disabled = loading;
+    spinner.style.display = loading ? 'block' : 'none';
+    label.textContent = loading ? '取得中...' : '🔄 更新';
+  }
+
+  function showProcessingNotice(show) {
+    document.getElementById('processingNotice').classList.toggle('show', show);
+  }
+
+  async function doRefresh() {
+    setRefreshState(true);
+    showProcessingNotice(true);
+    refreshStartTime = Date.now();
+
+    try {
+      await fetch('/api/refresh');
+    } catch(e) {}
+
+    // ポーリングで完了を待つ
+    let attempts = 0;
+    clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+      attempts++;
+      try {
+        const statusRes = await fetch('/api/status');
+        const status = await statusRes.json();
+
+        // 取得完了を確認
+        const newsRes = await fetch('/api/news');
+        if (newsRes.ok) {
+          const data = await newsRes.json();
+          if (data.articles && data.articles.length > 0) {
+            const updatedAt = new Date(data.generated_at || 0).getTime();
+            if (updatedAt > refreshStartTime) {
+              // 新しいデータが来た
+              clearInterval(pollTimer);
+              setRefreshState(false);
+              showProcessingNotice(false);
+              renderNews(data);
+              await loadDates();
+              return;
+            }
+          }
+        }
+
+        // 実行中でなくなった場合もリロード試行
+        if (!status.is_running && attempts > 3) {
+          clearInterval(pollTimer);
+          setRefreshState(false);
+          showProcessingNotice(false);
+          await loadNews();
+          await loadDates();
+          return;
+        }
+      } catch(e) {}
+
+      // タイムアウト (5分)
+      if (attempts > 60) {
+        clearInterval(pollTimer);
+        setRefreshState(false);
+        showProcessingNotice(false);
+        document.getElementById('statusMsg').textContent = 'タイムアウト。再度お試しください。';
+      }
+    }, 5000);
+  }
+
+  // 初期化
+  currentDate = new Date().toISOString().slice(0, 10);
+  document.getElementById('headerDate').textContent = formatDate(currentDate);
+
+  (async () => {
+    await loadNews();
+    await loadDates();
+  })();
+</script>
+</body>
+</html>
