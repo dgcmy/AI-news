@@ -7,12 +7,19 @@ import os
 
 
 RSS_FEEDS = [
-    {"name": "TechCrunch AI", "url": "https://techcrunch.com/category/artificial-intelligence/feed/", "source": "TechCrunch"},
-    {"name": "VentureBeat AI", "url": "https://venturebeat.com/category/ai/feed/", "source": "VentureBeat"},
-    {"name": "The Verge AI", "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", "source": "The Verge"},
-    {"name": "MIT Tech Review", "url": "https://feeds.technologyreview.com/technology_review-rss_feed.xml", "source": "MIT Technology Review"},
-    {"name": "Wired AI", "url": "https://www.wired.com/feed/category/artificial-intelligence/latest/rss", "source": "Wired"},
-    {"name": "ArsTechnica", "url": "https://feeds.arstechnica.com/arstechnica/technology-lab", "source": "Ars Technica"},
+    # 海外
+    {"name": "TechCrunch AI",  "url": "https://techcrunch.com/category/artificial-intelligence/feed/",          "source": "TechCrunch"},
+    {"name": "VentureBeat AI", "url": "https://venturebeat.com/category/ai/feed/",                              "source": "VentureBeat"},
+    {"name": "The Verge AI",   "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",      "source": "The Verge"},
+    {"name": "MIT Tech Review","url": "https://feeds.technologyreview.com/technology_review-rss_feed.xml",      "source": "MIT Technology Review"},
+    {"name": "Wired AI",       "url": "https://www.wired.com/feed/category/artificial-intelligence/latest/rss", "source": "Wired"},
+    {"name": "ArsTechnica",    "url": "https://feeds.arstechnica.com/arstechnica/technology-lab",               "source": "Ars Technica"},
+    # 国内（日本語）
+    {"name": "ITmedia AI+",    "url": "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml",                          "source": "ITmedia AI+"},
+    {"name": "ZDNet Japan",    "url": "https://japan.zdnet.com/rss/all/",                                       "source": "ZDNet Japan"},
+    {"name": "ASCII.jp",       "url": "https://ascii.jp/rss.xml",                                               "source": "ASCII.jp"},
+    {"name": "Impress Watch",  "url": "https://www.watch.impress.co.jp/data/rss/1.0/ict/feed.rdf",             "source": "Impress Watch"},
+    {"name": "Ledge.ai",       "url": "https://ledge.ai/feed/",                                                 "source": "Ledge.ai"},
 ]
 
 HEADERS = {
@@ -49,10 +56,9 @@ def scrape_openai_news() -> List[Dict]:
         resp = requests.get("https://openai.com/news", headers=HEADERS, timeout=15)
         if resp.status_code == 200:
             soup = BeautifulSoup(resp.text, "html.parser")
-            # Try multiple selector patterns
             links = soup.select("a[href*='/index/'], a[href*='/blog/'], a[href*='/research/']")
             seen = set()
-            for link in links[:20]:
+            for link in links[:8]:   # 8件に制限
                 href = link.get("href", "")
                 if not href or href in seen:
                     continue
@@ -62,7 +68,11 @@ def scrape_openai_news() -> List[Dict]:
                 title = title.strip()
                 if title and len(title) > 10:
                     url = f"https://openai.com{href}" if href.startswith("/") else href
-                    articles.append({"title": title, "url": url, "source": "OpenAI", "summary": "", "published_at": ""})
+                    date_str = ""
+                    time_el = link.find_parent().find("time") if link.find_parent() else None
+                    if time_el:
+                        date_str = time_el.get("datetime", time_el.get_text(strip=True))
+                    articles.append({"title": title, "url": url, "source": "OpenAI", "summary": "", "published_at": date_str})
             print(f"  OpenAI: {len(articles)} 件取得")
     except Exception as e:
         print(f"  OpenAI エラー: {e}")
@@ -77,7 +87,7 @@ def scrape_anthropic_news() -> List[Dict]:
             soup = BeautifulSoup(resp.text, "html.parser")
             links = soup.select("a[href*='/news/']")
             seen = set()
-            for link in links[:20]:
+            for link in links[:8]:   # 多すぎるので8件に制限
                 href = link.get("href", "")
                 if not href or href in seen or href == "/news" or href == "/news/":
                     continue
@@ -85,7 +95,12 @@ def scrape_anthropic_news() -> List[Dict]:
                 title = link.get_text(strip=True)
                 if title and len(title) > 10:
                     url = f"https://www.anthropic.com{href}" if href.startswith("/") else href
-                    articles.append({"title": title, "url": url, "source": "Anthropic", "summary": "", "published_at": ""})
+                    # 日付を取得（<time>タグ or テキスト中の日付）
+                    date_str = ""
+                    time_el = link.find_parent().find("time") if link.find_parent() else None
+                    if time_el:
+                        date_str = time_el.get("datetime", time_el.get_text(strip=True))
+                    articles.append({"title": title, "url": url, "source": "Anthropic", "summary": "", "published_at": date_str})
             print(f"  Anthropic: {len(articles)} 件取得")
     except Exception as e:
         print(f"  Anthropic エラー: {e}")

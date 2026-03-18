@@ -1,10 +1,11 @@
 @echo off
+chcp 65001 > nul
 echo ================================================
-echo  AI ニュースダイジェスト 起動中...
+echo  AI News Digest - Starting server...
 echo ================================================
 echo.
-echo ブラウザで http://localhost:8080 を開いてください
-echo 終了するには Ctrl+C を押してください
+echo Open browser: http://localhost:8080
+echo Press Ctrl+C to stop
 echo.
 python app.py
 pause

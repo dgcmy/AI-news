@@ -1,31 +1,31 @@
 import os
-from pathlib import Path
+
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
-
-load_dotenv()
 
 from database import Database
 from scheduler import NewsScheduler
 
+load_dotenv()
+
 app = FastAPI(title="AI News Aggregator")
 db = Database()
-scheduler_instance: NewsScheduler = None
+scheduler_instance: NewsScheduler | None = None
 
 
 @app.on_event("startup")
 async def startup_event():
     global scheduler_instance
+
     db.initialize()
     scheduler_instance = NewsScheduler(db)
     scheduler_instance.start()
 
-    # 今日のニュースがなければ即取得
+    # Trigger an initial fetch if today's news is missing.
     today_news = db.get_today_news()
     if not today_news["articles"]:
-        print("本日のニュースなし - 自動取得を開始します...")
+        print("No news found for today. Triggering initial fetch...")
         scheduler_instance.trigger_fetch()
 
 
@@ -36,24 +36,25 @@ async def shutdown_event():
 
 
 @app.get("/api/news")
-async def get_news(date: str = None):
+async def get_news(date: str | None = None):
     if date:
-        data = db.get_news_by_date(date)
-    else:
-        data = db.get_today_news()
-    return data
+        return db.get_news_by_date(date)
+    return db.get_today_news()
 
 
 @app.get("/api/refresh")
 async def refresh_news():
     if not scheduler_instance:
         raise HTTPException(status_code=503, detail="Scheduler not ready")
+
     if scheduler_instance.is_running:
-        return {"status": "running", "message": "既に取得中です。しばらくお待ちください。"}
+        return {"status": "running", "message": "Refresh is already in progress."}
+
     ok = scheduler_instance.trigger_fetch()
     if ok:
-        return {"status": "started", "message": "ニュースの取得を開始しました（数分かかります）"}
-    return {"status": "busy", "message": "既に処理中です"}
+        return {"status": "started", "message": "Started fetching the latest news."}
+
+    return {"status": "busy", "message": "Fetcher is busy."}
 
 
 @app.get("/api/status")
@@ -68,12 +69,13 @@ async def get_dates():
     return {"dates": db.get_available_dates()}
 
 
-# 静的ファイル（フロントエンド）- 最後にマウント
+# Mount static files last so API routes continue to take precedence.
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 
 if __name__ == "__main__":
     import uvicorn
+
     port = int(os.getenv("PORT", 8080))
-    print(f"サーバー起動: http://localhost:{port}")
+    print(f"Server starting: http://localhost:{port}")
     uvicorn.run("app:app", host="0.0.0.0", port=port, reload=False)
